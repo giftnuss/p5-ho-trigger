@@ -4,48 +4,52 @@ $VERSION = "0.01";
 #*****************
 use strict; use warnings;
 
-use Carp;
+use Carp ();
 
 ; my $loaded # flag to store accessor only one time
 
-; my (%TriggerPoints,%TriggerObjects)
+; my (%TriggerPoints,%TriggerObjects,%TriggerMaps)
 
 ; my $enable_trigger = sub
     { $HO::accessor::type{'trigger'} = sub 
         { my ($self,$args) = @_
         ; my $hookedclass = ref $self
         ; my $trigger
-
-        ; if(defined(my $hr = $TriggerPoints{$hookedclass}))
-            { if($TriggerObjects{$hookedclass})
-                { $trigger = $TriggerObjects{$hookedclass}
-                }
-              else
-                { $trigger = $TriggerObjects{$hookedclass} 
-                           = __PACKAGE__->new($self)
-                }
-            ; my @hooks = @$hr
-            ; my $idx = @{$trigger}
-            ; no strict 'refs'
-            ; foreach my $hook (@hooks)
-                { my $hookidx = $idx++
-                ; $trigger->[$hookidx] = []
-                ; *{"${hookedclass}::_${hook}"} = sub { $hookidx }
-                ; *{"${hookedclass}::${hook}"} = hook_method($trigger->[$hookidx])
-                }
-            ; return $trigger
+        ; if($TriggerObjects{$hookedclass})
+            { $trigger = $TriggerObjects{$hookedclass}
             }
           else
-            { Carp::croak("Trigger object used, but no hooks found for class $hookedclass.")
+            { $trigger = $TriggerObjects{$hookedclass} 
+                       = __PACKAGE__->new($self)
             }
+        ; return $trigger
         }
     ; $HO::accessor::rw_accessor{'trigger'} = sub
-        { my ($name,$idx) = @_
-        ; return sub 
-             { my ($hooked,@args) = @_
-             ; my $trigger = $hooked->[$idx]
-             ; $hooked->[$idx]
-             }
+        { my ($name,$idx,$class) = @_
+
+        ; if(defined(my $hr = $TriggerPoints{$class}))
+            { unless(defined($TriggerMaps{$class}))
+                { my @hooks = @$hr
+                ;
+                ; my $trig = @{HO::accessor->accessors_for_class(__PACKAGE__)}/2
+                ; $TriggerMaps{$class} = {}
+                ; no strict 'refs'
+                ; foreach my $hook (@hooks)
+                    { my $hookidx = $trig++
+                    ; *{"${class}::_${hook}"} = sub { $hookidx }
+                    ; *{"${class}::${hook}"} = hook_method($idx,$hookidx)
+                    ; $TriggerMaps{$class}->{$hook} = $hookidx
+                    }
+                }
+              else
+                { Carp::croak("Only one trigger per class allowed in class '$class'.")
+                }
+            }
+          else
+            { Carp::croak("Trigger object used, but no hooks found for class $class.")
+            }
+        # acessing the trigger object
+        ; return sub { $_[0]->[$idx] }
         }
     }
 
@@ -61,10 +65,11 @@ use Carp;
     }
 
 ; sub hook_method
-    { my ($triggers) = @_
+    { my ($triggeridx,$hookidx) = @_
     ; sub
         { my ($hookedobject,@args) = @_
         ; my @errors
+        ; my $triggers = $hookedobject->[$triggeridx]->[$hookidx]
         ; foreach my $call (@$triggers)
             { if($call->[1])
                 { $call->[0]->($hookedobject,@args)
@@ -82,12 +87,12 @@ use Carp;
 ; use subs qw/init/
 
 ; use HO::class
-     _ro => _hooked_object => '$'
+     _ro => _hook_map => '%'
 
 ; sub init
     { my ($self,$hooked) = @_
-    ; $self->[__hooked_object] = $hooked
     ; my $hookedclass = ref $hooked
+    ; $self->[__hook_map] = $TriggerMaps{$hookedclass}
     ; $self
     }
 
@@ -103,7 +108,8 @@ use Carp;
         }
 
     ; my $hook = $args{'name'};
-    ; unless(grep { $_ eq $hook } @{$TriggerPoints{ref $self->_hooked_object}})
+    ; my $idx = $self->_hook_map->{$hook}
+    ; unless(defined $idx)
         { Carp::carp("Adding to a not declared hook '$hook' is ignored.")
         ; return
         }
@@ -112,8 +118,7 @@ use Carp;
         }
     ; $args{'abortable'} = 1 unless defined $args{'abortable'}
 
-    ; my $triggerstore = "_$hook"
-    ; push @{ $self->[$self->_hooked_object->$triggerstore] }, [ $args{'callback'}, $args{'abortable'} ];
+    ; push @{ $self->[$idx] }, [ $args{'callback'}, $args{'abortable'} ];
     ; $self
     }
 
