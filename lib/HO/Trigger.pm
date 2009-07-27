@@ -40,6 +40,12 @@ use Carp ();
                     ; *{"${class}::${hook}"} = hook_method($idx,$hookidx)
                     ; $TriggerMaps{$class}->{$hook} = $hookidx
                     }
+                # support inheritance
+                ; unless($class->can('_trigger_classes'))
+                    { my @triggerclasses
+                    ; *{"${class}::_trigger_classes"} = sub { \@triggerclasses }
+                    }
+                ; push @{$class->_trigger_classes}, $class
                 }
               else
                 { Carp::croak("Only one trigger per class allowed in class '$class'.")
@@ -58,7 +64,7 @@ use Carp ();
     ; my $pkg = caller(0);
 
     ; unless($loaded)
-        { $enable_trigger->();
+        { $enable_trigger->()
         ; $loaded = 1
         }
     ; $TriggerPoints{$pkg} = [ @_ ] if @_
@@ -91,8 +97,17 @@ use Carp ();
 
 ; sub init
     { my ($self,$hooked) = @_
-    ; my $hookedclass = ref $hooked
-    ; $self->[__hook_map] = $TriggerMaps{$hookedclass}
+
+    ; my @triggerclasses = @{$hooked->_trigger_classes}
+    ; my $triggerclass = shift @triggerclasses
+
+    ; for(my $cnt=0; $cnt < @$hooked; $cnt++)
+        { last unless @triggerclasses
+        ; if(ref($hooked->[$cnt]) eq __PACKAGE__)
+            { $triggerclass = shift @triggerclasses
+            }
+        }
+    ; $self->[__hook_map] = $TriggerMaps{$triggerclass}
     ; $self
     }
 
