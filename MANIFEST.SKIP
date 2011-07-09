@@ -13,3 +13,5 @@
 \.SKIP$
 (^|/)pm_to_blib
 ^cover_db/
+^MYMETA\.(yml|json)$
+^_build/

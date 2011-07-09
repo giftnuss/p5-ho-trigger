@@ -1,0 +1,26 @@
+---
+abstract: 'Triggers for hierarchical objects'
+author:
+  - 'Sebastian Knapp <rock@ccls-online.de>'
+build_requires:
+  Test::More: 0
+  Test::UseAllModules: 0.12
+configure_requires:
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3603'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: HO-Trigger
+provides:
+  HO::Trigger:
+    file: lib/HO/Trigger.pm
+    version: 0.01
+requires:
+  HO::class: 0.05
+  perl: 5.008
+resources:
+  homepage: http://github.com/giftnuss/p5-ho-trigger/tree/master
+  repository: git://github.com/giftnuss/p5-ho-trigger.git
+version: 0.00005
